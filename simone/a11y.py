@@ -13,6 +13,14 @@ import re
 
 INTERACTIVE_ROLES = {"button", "link", "textbox", "checkbox", "radio", "combobox", "searchbox"}
 
+# Libellés usuels des boutons de bandeaux cookies/consentement (FR + EN) : on les
+# ferme au mieux avant de laisser l'agent percevoir la page, sinon ils bloquent
+# systématiquement le persona dès la première étape sur la plupart des sites réels.
+COOKIE_BUTTON_PATTERNS = [
+    r"tout accepter", r"accepter et fermer", r"^accepter$", r"j'accepte",
+    r"accept all", r"^accept$", r"i agree", r"got it", r"agree and close",
+]
+
 
 @dataclass
 class A11yNode:
@@ -57,26 +65,46 @@ class PlaywrightDriver:
         self._nodes_cache = []
 
     def goto(self, url: str):
-        self.page.goto(url)
-        self.page.wait_for_load_state("networkidle")
+        self.page.goto(url, wait_until="domcontentloaded")
+        try:
+            self.page.wait_for_load_state("networkidle", timeout=5000)
+        except Exception:
+            pass  # sites avec polling/tracking continu (Amazon...) n'idlent jamais
+        self._dismiss_cookie_banner()
+        self.page.wait_for_timeout(400)  # laisse le temps au contenu chargé en JS (SPA) d'apparaître
+
+    def _dismiss_cookie_banner(self):
+        """Best-effort : ferme un bandeau cookies/consentement s'il en détecte un."""
+        import re as _re
+        for pattern in COOKIE_BUTTON_PATTERNS:
+            try:
+                btn = self.page.get_by_role("button", name=_re.compile(pattern, _re.I)).first
+                if btn.is_visible(timeout=800):
+                    btn.click(timeout=800)
+                    self.page.wait_for_timeout(200)
+                    return
+            except Exception:
+                continue
+
+    _ARIA_LINE = re.compile(r'^\s*-\s+([a-zA-Z]+)(?:\s+"([^"]*)")?(.*)$')
 
     def snapshot(self) -> PageState:
-        """L'arbre d'accessibilité natif de Chromium : la vérité du lecteur d'écran."""
-        tree = self.page.accessibility.snapshot() or {}
+        """L'arbre d'accessibilité natif de Chromium : la vérité du lecteur d'écran.
+        (page.accessibility a été retiré de Playwright -> on utilise aria_snapshot(),
+        son remplaçant officiel, et on le parse.)"""
+        yaml_tree = self.page.locator("body").aria_snapshot()
         nodes, counter = [], [0]
-
-        def walk(node):
-            role = node.get("role", "")
-            name = (node.get("name") or "").strip()
-            if role in INTERACTIVE_ROLES:
-                nid = f"pw-{counter[0]}"; counter[0] += 1
-                nodes.append(A11yNode(role=role, name=name, node_id=nid,
-                                      focusable=not node.get("disabled", False),
-                                      meta={"pw_name": name, "pw_role": role}))
-            for child in node.get("children", []) or []:
-                walk(child)
-
-        walk(tree)
+        for line in yaml_tree.splitlines():
+            m = self._ARIA_LINE.match(line)
+            if not m:
+                continue
+            role, name, extra = m.group(1), (m.group(2) or "").strip(), m.group(3) or ""
+            if role not in INTERACTIVE_ROLES:
+                continue
+            nid = f"pw-{counter[0]}"; counter[0] += 1
+            nodes.append(A11yNode(role=role, name=name, node_id=nid,
+                                  focusable="[disabled]" not in extra,
+                                  meta={"pw_name": name, "pw_role": role}))
         self._nodes_cache = nodes
         text = self.page.inner_text("body")[:4000]
         return PageState(url=self.page.url, title=self.page.title(), nodes=nodes, raw_text=text)
@@ -91,26 +119,28 @@ class PlaywrightDriver:
                 loc.fill(value, timeout=3000)
             elif action == "press_enter":
                 loc.press("Enter", timeout=3000)
-            self.page.wait_for_load_state("networkidle")
+            try:
+                self.page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                pass  # l'action a réussi même si la page ne devient jamais idle
             return True
         except Exception:
             return False
 
     def keyboard_reachable(self):
-        """Persona moteur : parcourt le Tab order réel et retourne les éléments focusables."""
-        seen, out = set(), []
-        self.page.keyboard.press("Tab")
-        for _ in range(80):
-            info = self.page.evaluate(
-                "() => { const e = document.activeElement;"
-                " return e ? {tag: e.tagName, text: (e.innerText||e.value||'').slice(0,80),"
-                " href: e.href||''} : null }")
-            key = str(info)
-            if not info or key in seen:
-                break
-            seen.add(key); out.append(info)
-            self.page.keyboard.press("Tab")
-        return out
+        """Persona moteur : parmi les nœuds de la dernière snapshot, ceux réellement
+        atteignables au Tab (tabindex >= 0, ni désactivé ni masqué). Renvoie les
+        mêmes A11yNode que snapshot() (node_id compatibles), pas un relevé DOM à part."""
+        reachable = []
+        for n in self._nodes_cache:
+            try:
+                loc = self.page.get_by_role(n.meta["pw_role"], name=n.meta["pw_name"]).first
+                ok = loc.evaluate("el => el.tabIndex >= 0 && !el.disabled && el.offsetParent !== null")
+                if ok:
+                    reachable.append(n)
+            except Exception:
+                continue
+        return reachable
 
     def close(self):
         self._browser.close(); self._pw.stop()

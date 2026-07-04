@@ -30,13 +30,15 @@ class RunResult:
 
 
 def run_persona(driver, brain, persona_key: str, goal: str,
-                start_url: str, success_marker: str) -> RunResult:
+                start_url: str, success_marker: str, max_steps: int | None = None) -> RunResult:
     persona = PERSONAS[persona_key]
     driver.goto(start_url)
     history, steps = [], []
     budget = persona.confusion_budget
+    steps_limit = max_steps or persona.max_steps
+    last_sig, repeat_count = None, 0
 
-    for _ in range(persona.max_steps):
+    for _ in range(steps_limit):
         state = driver.snapshot()
 
         # condition de succès : le marqueur apparaît dans le titre ou le texte
@@ -54,7 +56,10 @@ def run_persona(driver, brain, persona_key: str, goal: str,
 
         decision = brain.decide(persona, goal, state, history)
         mono = decision.get("monologue", "")
-        idx = decision.get("index", -1)
+        try:
+            idx = int(decision.get("index", -1))
+        except (TypeError, ValueError):
+            idx = -1
         action = decision.get("action", "give_up")
 
         step = Step(page=state.title, monologue=mono, action=action)
@@ -63,7 +68,7 @@ def run_persona(driver, brain, persona_key: str, goal: str,
             step.ok = False
             steps.append(step)
             return RunResult(persona_key, persona.display, goal, False, steps,
-                             fail_reason=decision.get("reason_if_give_up", mono),
+                             fail_reason=decision.get("reason_if_give_up") or mono,
                              budget_left=budget)
 
         if 0 <= idx < len(state.nodes):
@@ -87,10 +92,24 @@ def run_persona(driver, brain, persona_key: str, goal: str,
             prev_url = state.url
             step.ok = driver.act(node, "fill" if action == "fill" else "click",
                                  decision.get("value", ""))
+            new_url = driver.snapshot().url if step.ok else prev_url
+            page_changed = step.ok and new_url != prev_url
             if action == "fill" and step.ok:
                 history.append(f"fill:{node.node_id}")
-            if step.ok and driver.snapshot().url != prev_url:
-                history.append(f"PAGE->{driver.snapshot().url}")
+            if page_changed:
+                history.append(f"PAGE->{new_url}")
+
+            sig = (action, node.node_id)
+            repeat_count = repeat_count + 1 if step.ok and not page_changed and sig == last_sig else 0
+            last_sig = sig if step.ok else None
+            if repeat_count >= 2:
+                step.ok = False
+                step.monologue += " … Je répète la même action sans que rien ne change, j'arrête."
+                steps.append(step)
+                return RunResult(persona_key, persona.display, goal, False, steps,
+                                 fail_reason=f"boucle détectée : « {action} » sur "
+                                             f"{step.target} répété sans effet",
+                                 budget_left=budget)
         steps.append(step)
         history.append(f"{action} sur {step.target or '?'} -> {'ok' if step.ok else 'échec'}")
 

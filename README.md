@@ -10,15 +10,17 @@ Sortie : un **rapport métier HTML** (`out/rapport.html`) — taux de complétio
 
 ## Installation
 ```bash
-pip install playwright anthropic google-genai streamlit
+pip install playwright anthropic openai google-genai ollama streamlit
 python -m playwright install chromium      # requis pour le mode réel
 ```
 
-Cerveau LLM (au choix, sinon MockBrain heuristique par défaut) :
+Cerveau LLM (au choix via `--brain` / sélecteur Streamlit, sinon MockBrain heuristique) :
 ```bash
-export GEMINI_API_KEY=...        # gratuit : https://aistudio.google.com/apikey
-# ou
-export ANTHROPIC_API_KEY=sk-...  # payant, meilleure qualité de raisonnement
+export GEMINI_API_KEY=...        # gratuit, quota/jour limité : https://aistudio.google.com/apikey
+export OPENAI_API_KEY=sk-...     # payant, ChatGPT
+export ANTHROPIC_API_KEY=sk-...  # payant, Claude
+# ou Ollama en local (gratuit ET illimité, aucune clé) :
+brew install ollama && ollama serve && ollama pull llama3.2
 ```
 
 ## Interface web (recommandé pour tester/démontrer sans terminal)
@@ -56,7 +58,7 @@ Règles d'or : tester le site cible 20 fois avant la démo ; définir un `--succ
 ```
 simone/a11y.py      extraction de l'arbre d'accessibilité (PlaywrightDriver / StaticDriver)
 simone/personas.py  les contraintes de chaque persona + coûts de friction cognitive
-simone/brain.py     décision : LLMBrain (Claude) ou MockBrain (heuristique de secours)
+simone/brain.py     décision : Claude / Gemini / ChatGPT / Ollama (local) / MockBrain (secours)
 simone/agent.py     la boucle percevoir → décider → agir + journal
 simone/report.py    le rapport métier HTML
 run_audit.py        CLI

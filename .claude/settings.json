@@ -13,7 +13,9 @@
       "Bash(python3 -m pip install playwright anthropic)",
       "Bash(python3 -m venv .venv)",
       "Bash(.venv/bin/pip install *)",
-      "Bash(.venv/bin/python -m playwright install chromium)"
+      "Bash(.venv/bin/python -m playwright install chromium)",
+      "Bash(pkill -f \"streamlit run app.py\")",
+      "Bash(.venv/bin/streamlit run *)"
     ]
   }
 }

@@ -27,8 +27,12 @@ PERSONAS = {
                      "figure pas, il n'existe pas pour toi.")),
     "moteur": Persona(
         key="moteur", display="Simone — persona moteur (clavier seul)",
-        description=("Tu ne peux pas utiliser de souris. Tu n'agis que sur les éléments "
-                     "atteignables à la touche Tab, activés par Entrée.")),
+        description=("Tu n'as pas l'usage de tes mains pour une souris ou un écran tactile : "
+                     "tu navigues entièrement au clavier, touche Tab pour te déplacer d'un "
+                     "élément au suivant, Entrée pour activer. Un bouton ou lien visible et "
+                     "cliquable à la souris mais absent de l'ordre de tabulation est, pour "
+                     "toi, aussi inaccessible qu'un mur : tu ne peux physiquement pas "
+                     "l'atteindre, même si tu sais qu'il existe.")),
     "cognitif": Persona(
         key="cognitif", display="Simone — persona cognitif (charge mentale limitée)",
         description=("Tu as une tolérance limitée à la complexité. Jargon technique, "
@@ -39,9 +43,12 @@ PERSONAS = {
 }
 
 # Frictions cognitives détectables automatiquement (heuristiques v1, à calibrer
-# ensuite avec ergothérapeutes et utilisateurs réels — à assumer tel quel au jury)
-JARGON = ["iban", "rib", "psp", "cryptogramme", "cvv2", "cvc2", "transactionnel", "réf."]
-VAGUE = ["cliquez ici", "suite", "procéder", "découvrir", "en savoir plus", "ok"]
+# ensuite avec ergothérapeutes et utilisateurs réels — à assumer tel quel au jury).
+# FR + EN : les sites testés ne sont pas tous francophones.
+JARGON = ["iban", "rib", "psp", "cryptogramme", "cvv2", "cvc2", "cvv", "transactionnel", "réf.",
+         "swift", "bic", "auth code", "sku"]
+VAGUE = ["cliquez ici", "suite", "procéder", "découvrir", "en savoir plus", "ok",
+        "click here", "learn more", "read more", "next", "submit", "proceed"]
 
 
 def cognitive_cost(page_state, chosen_name: str) -> tuple[float, list[str]]:
