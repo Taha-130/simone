@@ -32,6 +32,8 @@ manque. Ton monologue doit être exploitable dans un rapport (précis, factuel).
 
 
 class LLMBrain:
+    """Claude via l'API Anthropic — payant dès la première requête."""
+
     def __init__(self, model: str = "claude-sonnet-4-6"):
         import anthropic
         self.client = anthropic.Anthropic()  # lit ANTHROPIC_API_KEY
@@ -45,6 +47,32 @@ class LLMBrain:
             system=SYSTEM_TMPL.format(persona_description=persona.description, goal=goal),
             messages=[{"role": "user", "content": msg}])
         raw = resp.content[0].text
+        m = re.search(r"\{.*\}", raw, re.S)
+        try:
+            return Decision(json.loads(m.group(0)))
+        except Exception:
+            return Decision(action="give_up", index=-1, value="",
+                            monologue="Je n'arrive plus à raisonner sur cette page.",
+                            reason_if_give_up="réponse LLM illisible")
+
+
+class GeminiBrain:
+    """Gemini via l'API Google (google-genai) — niveau gratuit disponible sur
+    https://aistudio.google.com/apikey (clé perso, quotas limités mais sans CB)."""
+
+    def __init__(self, model: str = "gemini-2.5-flash"):
+        from google import genai
+        self.client = genai.Client()  # lit GEMINI_API_KEY (ou GOOGLE_API_KEY)
+        self.model = model
+
+    def decide(self, persona, goal, page_state, history) -> Decision:
+        hist = "\n".join(f"- {h}" for h in history[-6:]) or "(début du parcours)"
+        msg = f"HISTORIQUE :\n{hist}\n\n{page_state.describe_for_llm()}"
+        system = SYSTEM_TMPL.format(persona_description=persona.description, goal=goal)
+        resp = self.client.models.generate_content(
+            model=self.model, contents=msg,
+            config={"system_instruction": system})
+        raw = resp.text or ""
         m = re.search(r"\{.*\}", raw, re.S)
         try:
             return Decision(json.loads(m.group(0)))
@@ -105,12 +133,23 @@ class MockBrain:
                         monologue=f"J'abandonne : {reason}", reason_if_give_up=reason)
 
 
-def get_brain(use_llm: bool | None = None):
-    if use_llm is None:
-        use_llm = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    if use_llm:
+def get_brain(provider: str = "auto"):
+    """provider : 'auto' | 'claude' | 'gemini' | 'mock'."""
+    if provider == "auto":
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            provider = "claude"
+        elif os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
+            provider = "gemini"
+        else:
+            provider = "mock"
+    if provider == "claude":
         try:
             return LLMBrain()
         except Exception as e:
-            print(f"[simone] LLM indisponible ({e}) -> MockBrain")
+            print(f"[simone] Claude indisponible ({e}) -> MockBrain")
+    elif provider == "gemini":
+        try:
+            return GeminiBrain()
+        except Exception as e:
+            print(f"[simone] Gemini indisponible ({e}) -> MockBrain")
     return MockBrain()

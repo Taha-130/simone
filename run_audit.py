@@ -22,7 +22,8 @@ def main():
     ap.add_argument("--success-marker", default="commande confirmée",
                     help="texte/titre qui prouve le succès")
     ap.add_argument("--personas", default="aveugle,moteur,cognitif")
-    ap.add_argument("--llm", action="store_true")
+    ap.add_argument("--brain", choices=["auto", "claude", "gemini", "mock"], default="auto",
+                    help="'auto' détecte la clé API présente (ANTHROPIC_API_KEY/GEMINI_API_KEY)")
     ap.add_argument("--out", default="out/rapport.html")
     ap.add_argument("--visitors", type=int, default=100000)
     a = ap.parse_args()
@@ -36,7 +37,7 @@ def main():
         driver = PlaywrightDriver()
         start, name = a.url, a.url
 
-    brain = get_brain(True if a.llm else None)
+    brain = get_brain(a.brain)
     results = []
     for p in a.personas.split(","):
         print(f"→ {p} : lancement du parcours…")

@@ -10,10 +10,23 @@ Sortie : un **rapport métier HTML** (`out/rapport.html`) — taux de complétio
 
 ## Installation
 ```bash
-pip install playwright anthropic
+pip install playwright anthropic google-genai streamlit
 python -m playwright install chromium      # requis pour le mode réel
-export ANTHROPIC_API_KEY=sk-...            # requis pour le cerveau LLM
 ```
+
+Cerveau LLM (au choix, sinon MockBrain heuristique par défaut) :
+```bash
+export GEMINI_API_KEY=...        # gratuit : https://aistudio.google.com/apikey
+# ou
+export ANTHROPIC_API_KEY=sk-...  # payant, meilleure qualité de raisonnement
+```
+
+## Interface web (recommandé pour tester/démontrer sans terminal)
+```bash
+streamlit run app.py
+```
+Formulaire dans le navigateur (site à tester, objectif, personas, choix du cerveau),
+monologue affiché en direct, rapport HTML téléchargeable à la fin.
 
 ## Les 3 modes (du plus sûr au plus impressionnant)
 
@@ -29,11 +42,11 @@ Le site `site_ko` est volontairement inaccessible (CTA en `<div onclick>`, liens
 python -m http.server 8000 --directory demo_site/site_ko &
 python run_audit.py --url http://localhost:8000/index.html --out out/rapport.html
 ```
-Playwright extrait le VRAI arbre d'accessibilité de Chromium (`page.accessibility.snapshot()`), le persona moteur parcourt le VRAI Tab order. Si `ANTHROPIC_API_KEY` est défini, le cerveau est Claude : monologues bien plus riches et adaptatifs — c'est la version à montrer.
+Playwright extrait le VRAI arbre d'accessibilité de Chromium (`page.accessibility.snapshot()`), le persona moteur parcourt le VRAI Tab order. Si `GEMINI_API_KEY` ou `ANTHROPIC_API_KEY` est défini, le cerveau est un LLM : monologues bien plus riches et adaptatifs — c'est la version à montrer.
 
 **3. Site réel (l'effet maximal — à tester AVANT, jamais improvisé en live)**
 ```bash
-python run_audit.py --url https://le-site-cible.fr --llm \
+python run_audit.py --url https://le-site-cible.fr --brain gemini \
   --goal "Trouver le formulaire de contact et l'envoyer" \
   --success-marker "message envoyé"
 ```
