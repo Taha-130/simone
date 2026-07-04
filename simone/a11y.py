@@ -17,8 +17,10 @@ INTERACTIVE_ROLES = {"button", "link", "textbox", "checkbox", "radio", "combobox
 # ferme au mieux avant de laisser l'agent percevoir la page, sinon ils bloquent
 # systématiquement le persona dès la première étape sur la plupart des sites réels.
 COOKIE_BUTTON_PATTERNS = [
-    r"tout accepter", r"accepter et fermer", r"^accepter$", r"j'accepte",
-    r"accept all", r"^accept$", r"i agree", r"got it", r"agree and close",
+    r"tout accepter", r"accepter tous les cookies", r"accepter et fermer",
+    r"^accepter$", r"j'accepte", r"accepter les cookies",
+    r"accept all", r"accept all cookies", r"^accept$", r"i agree",
+    r"got it", r"agree and close",
 ]
 
 
@@ -41,13 +43,19 @@ class PageState:
     nodes: list             # list[A11yNode] — l'arbre aplati, ordre du DOM
     raw_text: str = ""      # texte visible (pour le persona cognitif)
 
+    MAX_NODES_FOR_LLM = 60  # borne le coût/tour sur les pages très denses (méga-menus...)
+
     def describe_for_llm(self) -> str:
         lines = [f"PAGE: {self.title} ({self.url})", "ÉLÉMENTS PERÇUS PAR LE LECTEUR D'ÉCRAN :"]
         if not self.nodes:
             lines.append("  (aucun élément interactif perceptible)")
-        for i, n in enumerate(self.nodes):
+        shown = self.nodes[:self.MAX_NODES_FOR_LLM]
+        for i, n in enumerate(shown):
             focus = "" if n.focusable else " [NON atteignable au clavier]"
             lines.append(f"  [{i}] {n.label()}{focus}")
+        if len(self.nodes) > self.MAX_NODES_FOR_LLM:
+            lines.append(f"  … + {len(self.nodes) - self.MAX_NODES_FOR_LLM} autres éléments "
+                        f"non affichés ici (page très dense)")
         return "\n".join(lines)
 
 
