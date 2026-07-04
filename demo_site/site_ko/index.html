@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>TechShop</title>
+<style>
+body{font-family:Arial;margin:0}header{background:#1a1a2e;color:#fff;padding:16px}
+.nav a{color:#ccc;margin-right:12px;font-size:13px}
+.hero{background:#e94560;color:#fff;padding:40px;text-align:center}
+.grid{display:flex;gap:16px;padding:24px}
+.card{border:1px solid #ddd;padding:16px;width:220px}
+.btn{background:#0f3460;color:#fff;padding:10px 16px;display:inline-block;cursor:pointer;margin-top:8px}
+</style></head>
+<body>
+<header>
+  <span style="font-size:22px">TechShop</span>
+  <div class="nav">
+    <a href="#">cliquez ici</a><a href="#">cliquez ici</a><a href="#">cliquez ici</a>
+    <a href="#">cliquez ici</a><a href="#">en savoir plus</a><a href="#">cliquez ici</a>
+    <a href="panier.html"><img src="cart.png" width="20"></a>
+  </div>
+</header>
+<div class="hero">
+  <h1>Soldes d'été</h1>
+  <!-- CTA principal : div cliquable, invisible pour un lecteur d'écran -->
+  <div class="btn" onclick="location.href='#boutique'">Découvrir</div>
+</div>
+<div class="grid" id="boutique">
+  <div class="card">
+    <img src="casque.jpg" width="180">
+    <h3>Casque Audio X</h3>
+    <p>129 €</p>
+    <!-- Ajout panier : div onclick sans role ni nom accessible -->
+    <div class="btn" onclick="location.href='panier.html'"><b>&#128722;</b></div>
+  </div>
+  <div class="card">
+    <img src="souris.jpg" width="180">
+    <h3>Souris Pro</h3>
+    <p>59 €</p>
+    <div class="btn" onclick="location.href='panier.html'"><b>&#128722;</b></div>
+  </div>
+  <div class="card">
+    <img src="clavier.jpg" width="180">
+    <h3>Clavier Méca</h3>
+    <p>89 €</p>
+    <div class="btn" onclick="location.href='panier.html'"><b>&#128722;</b></div>
+  </div>
+</div>
+</body></html>
